@@ -8,7 +8,7 @@ import { connectRedis } from "@/services/redis";
 export default async function forgotPasswordController(c: Context) {
 	try {
 		const { email } = await c.req.json();
-		const user = await UserModel.findEmail(email, {});
+		const user = await UserModel.findEmail(email, "");
 		if (!user) return c.json({ error: "Usuario no encontrado" }, 400);
 
 		const userId = user._id?.toString() || "";
