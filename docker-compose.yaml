@@ -1,0 +1,42 @@
+services:
+  redis:
+    image: redis:latest
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  auth:
+    build:
+      context: ./modules/auth
+    volumes:
+    - ./modules/auth/src:/app/src
+    - ./modules/auth/package.json:/app/package.json
+    - ./modules/auth/tsconfig.json:/app/tsconfig.json
+    - ./modules/auth/bun.lock:/app/bun.lock
+    - /app/node_modules
+    ports:
+      - "3000:3000"
+    command: bun run dev
+    working_dir: /app
+    env_file:
+      - ./modules/auth/.env
+    depends_on:
+      - mongo
+      - redis
+    environment:
+      WATCHPACK_POLLING: "true"
+      CHOKIDAR_USEPOLLING: "true"
+
+  mongo:
+    image: mongo:6
+    restart: always
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+volumes:
+  mongo_data:
+  redis_data:
