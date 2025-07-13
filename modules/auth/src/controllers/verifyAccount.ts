@@ -1,12 +1,14 @@
 import type { Context } from "hono";
 import { UserModel } from "@/schemas/user";
-import { getRequiredEnv } from "@/services/getEnv";
+import { getRequiredEnv } from "@/utils/getEnv";
 import { verifyJWT } from "@/services/jwt";
 import { connectRedis } from "@/services/redis";
+import type { VerifyAccountSchema } from "@/schemas/validation";
 
 export default async function verifyAccountController(c: Context) {
 	try {
-		const { token } = await c.req.json();
+		const { token } = c.get("zod") as VerifyAccountSchema;
+		
 		const decoded = verifyJWT({ token, secret: getRequiredEnv("JWT_SECRET") });
 		if (!decoded) return c.json({ error: "Token inválido" }, 400);
 
@@ -27,5 +29,6 @@ export default async function verifyAccountController(c: Context) {
 		return c.json({ message: "Cuenta verificada exitosamente" }, 200);
 	} catch (error) {
 		console.log(error);
+		return c.json({ error: "Error en la verificación de cuenta" }, 500);
 	}
 }

@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { getRequiredEnv } from "@/services/getEnv";
+import { getRequiredEnv } from "@/utils/getEnv";
 
 const MONGODB_URI = getRequiredEnv("MONGO_URI");
 

@@ -1,18 +1,21 @@
 import type { Context } from "hono";
 import { UserModel } from "@/schemas/user";
-import { generateCookie } from "@/services/generateCookies";
-import { getRequiredEnv } from "@/services/getEnv";
+import { generateCookie } from "@/services/generateCookie";
+import { getRequiredEnv } from "@/utils/getEnv";
 import { signJWT } from "@/services/jwt";
-import { createTransporter, sendEmail } from "@/services/mailer";
+import { sendEmail } from "@/services/mailer";
 import { connectRedis } from "@/services/redis";
+import { createUser } from "@/services/createUser";
+import type { SignUpSchema } from "@/schemas/validation";
 
-export default async function signupController(c: Context) {
+export default async function signUpController(c: Context) {
 	try {
-		const fields = await c.req.json();
-		const user = await UserModel.findEmail(fields.email, {});
+		const { email, password, firstName, lastName } = c.get("zod") as SignUpSchema;
+
+		const user = await UserModel.findEmail(email, "firstName lastName email");
 		if (user) return c.json({ error: "Este email ya está en uso" }, 400);
 
-		const newUser = await UserModel.create(fields);
+		const newUser = await createUser({ email, password, firstName, lastName });
 
 		const payload = {
 			id: newUser._id,
@@ -42,20 +45,15 @@ export default async function signupController(c: Context) {
 		});
 		await redisClient.set(temporalToken, newUser._id as string);
 
-		const transporter = await createTransporter({
-			user: getRequiredEnv("EMAIL_USER"),
-			pass: getRequiredEnv("EMAIL_PASS"),
-		});
 		await sendEmail({
 			to: newUser.email,
-			subject: "Bienvenido a nuestra aplicación",
+			subject: "Bienvenido a nuestra Ponos",
 			text: `
-            <h1>Bienvenido a nuestra aplicación</h1>
+            <h1>Bienvenido a nuestra Ponos</h1>
             <p>Para verificar tu cuenta, por favor haz click en el siguiente enlace:</p>
             <a href="${getRequiredEnv("FRONTEND_URL")}/verify?token=${temporalToken}">Verificar cuenta</a>
         `,
 			user: getRequiredEnv("EMAIL_USER"),
-			transporter,
 		});
 
 		generateCookie({

@@ -1,12 +1,10 @@
 import { Hono } from "hono";
 import connect from "@/database/connect";
-import Router from "@/routes/authRouter";
+import authRouter from "@/routes/authRouter";
+import { cors } from "hono/cors";
+import { getRequiredEnv } from "@/utils/getEnv";
 
 const app = new Hono();
-
-app.get("/", (c) => {
-	return c.text("Hello Hono!");
-});
 
 app.use("*", async (c, next) => {
 	try {
@@ -18,6 +16,14 @@ app.use("*", async (c, next) => {
 	}
 });
 
-app.route("/", Router);
+app.use("*", cors({
+		origin: getRequiredEnv("FRONTEND_URL"),
+		allowHeaders: ["Content-Type", "Authorization"],
+		allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+		credentials: true,
+	}),
+);
+
+app.route("/auth", authRouter);
 
 export default app;

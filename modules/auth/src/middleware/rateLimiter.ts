@@ -1,5 +1,5 @@
 import type { Context } from "hono";
-import { getRequiredEnv } from "@/services/getEnv";
+import { getRequiredEnv } from "@/utils/getEnv";
 import type { RateLimitStore } from "@/types/rateLimiter";
 
 const store: RateLimitStore = {};
@@ -10,7 +10,7 @@ const store: RateLimitStore = {};
  * @param {() => Promise<void>} next - The next middleware function
  * @returns {Promise<void>} - A promise that resolves to void
  */
-export const rateLimiter = async (c: Context, next: () => Promise<void>) => {
+export const rateLimiter =  (c: Context, next: () => void) => {
 	const clientId =
 		c.req.header("x-client-id") ||
 		c.req.header("cf-connecting-ip") ||
@@ -78,5 +78,5 @@ export const rateLimiter = async (c: Context, next: () => Promise<void>) => {
 		).toString(),
 	);
 
-	await next();
+	next();
 };

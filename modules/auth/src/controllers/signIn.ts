@@ -1,54 +1,39 @@
 import type { Context } from "hono";
-import { UserModel } from "@/schemas/user";
-import { generateCookie } from "@/services/generateCookies";
-import { getRequiredEnv } from "@/services/getEnv";
-import { signJWT } from "@/services/jwt";
+import { validateCredentials } from "@/services/validateCredentials";
+import { generateTokens } from "@/services/generateTokens";
+import { setAuthCookies } from "@/services/setAuthCookies";
+import type { SignInSchema } from "@/schemas/validation";
 
 export default async function signInController(c: Context) {
-	try {
-		const fields = await c.req.json();
-		const requiredFields = ["email", "password"];
+  try {
+    const { email, password } = c.get("zod") as SignInSchema;
 
-		for (const field of requiredFields) {
-			if (!fields[field])
-				return c.json({ error: `${field} es requerido` }, 400);
-		}
+    let user;
+    try {
+      user = await validateCredentials(email, password);
+    } catch (err) {
+      if (err instanceof Error && err.message === "NOT_FOUND") {
+        return c.json({ error: "Usuario no encontrado" }, 404);
+      }
+      if (err instanceof Error && err.message === "INVALID_PASSWORD") {
+        return c.json({ error: "Contraseña incorrecta" }, 401);
+      }
+      throw err;
+    }
 
-		const user = await UserModel.findEmail(fields.email, { password: 1 });
-		if (!user) return c.json({ error: "Usuario no encontrado" }, 404);
+    const payload = {
+      id: user._id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+    };
 
-		const isPasswordValid = await user.comparePassword(fields.password);
-		if (!isPasswordValid)
-			return c.json({ error: "Contraseña incorrecta" }, 401);
+    const { accessToken, refreshToken } = generateTokens(payload);
+    setAuthCookies(c, refreshToken);
 
-		const payload = {
-			id: user._id,
-			email: user.email,
-			firstName: user.firstName,
-			lastName: user.lastName,
-		};
-
-		const accessToken = signJWT({
-			payload,
-			secret: getRequiredEnv("JWT_SECRET"),
-			expiresIn: "1h",
-		});
-		const refreshToken = signJWT({
-			payload,
-			secret: getRequiredEnv("JWT_SECRET"),
-			expiresIn: "7d",
-		});
-
-		generateCookie({
-			c,
-			name: "refreshToken",
-			value: refreshToken,
-			expiresIn: 604800,
-		});
-
-		return c.json({ message: "Inicio de sesión exitoso", accessToken });
-	} catch (error) {
-		console.log(error);
-		return c.json({ error: "Error al iniciar sesión" }, 500);
-	}
+    return c.json({ message: "Inicio de sesión exitoso", accessToken });
+  } catch (error) {
+    console.error(error);
+    return c.json({ error: "Error al iniciar sesión" }, 500);
+  }
 }
